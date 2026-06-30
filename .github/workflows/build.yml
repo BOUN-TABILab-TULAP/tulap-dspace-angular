@@ -345,6 +345,8 @@ jobs:
   codecov:
     # Must run after 'tests' job above
     needs: tests
+    # Coverage upload belongs on main/nightly; skip on PRs to keep them lean.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -366,7 +368,9 @@ jobs:
           # Ensure codecov-action throws an error when it fails to upload
           # This allows us to auto-restart the action if an error is thrown
           with: |
-            fail_ci_if_error: true
+            # Do NOT fail CI on upload errors: this fork has no CODECOV_TOKEN, so the
+            # upload is best-effort. Add a CODECOV_TOKEN secret to enable real reporting.
+            fail_ci_if_error: false
             token: ${{ secrets.CODECOV_TOKEN }}
           # Try re-running action 5 times max
           attempt_limit: 5
