@@ -1963,6 +1963,12 @@
 
   "footer.copyright": "copyright © 2002-{{ year }}",
 
+  "footer.tulap.title": "TULAP — Turkish Language Processing Platform",
+
+  "footer.tulap.org": "Boğaziçi University · TABILAB",
+
+  "footer.powered-by": "Powered by DSpace",
+
   "footer.link.accessibility": "Accessibility settings",
 
   "footer.link.dspace": "DSpace software",

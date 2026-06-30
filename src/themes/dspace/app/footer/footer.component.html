@@ -1,0 +1,58 @@
+<footer>
+  <!-- Copyright -->
+  <div class="bottom-footer p-1 d-flex flex-column flex-md-row justify-content-center align-items-center text-white">
+    <div class="content-container align-self-center text-center">
+      <p class="m-0">
+        <span class="tulap-attribution">{{ 'footer.tulap.title' | translate }}</span>
+        <span class="d-none d-md-inline"> · </span>
+        <br class="d-md-none" />
+        {{ 'footer.copyright' | translate:{year: dateObj | date:'y'} }} {{ 'footer.tulap.org' | translate }}
+        <span class="d-none d-md-inline"> · </span>
+        <br class="d-md-none" />
+        <a class="text-white powered-by"
+           href="https://dspace.org/" target="_blank" rel="noopener noreferrer"
+           role="link" tabindex="0">{{ 'footer.powered-by' | translate }}</a>
+      </p>
+      <ul class="footer-info list-unstyled d-flex justify-content-center flex-wrap mb-0">
+        @if (showCookieSettings) {
+          <li>
+            <button class="btn btn-link text-white" type="button" (click)="openCookieSettings()" role="button" tabindex="0">
+              {{ 'footer.link.cookies' | translate }}
+            </button>
+          </li>
+        }
+        <li>
+          <a class="btn text-white"
+             routerLink="info/accessibility" role="link" tabindex="0">{{ 'footer.link.accessibility' | translate }}</a>
+        </li>
+        @if (showPrivacyPolicy) {
+          <li>
+            <a class="btn text-white"
+               routerLink="info/privacy" role="link" tabindex="0">{{ 'footer.link.privacy-policy' | translate }}</a>
+          </li>
+        }
+        @if (showEndUserAgreement) {
+          <li>
+            <a class="btn text-white"
+               routerLink="info/end-user-agreement" role="link" tabindex="0">{{ 'footer.link.end-user-agreement' | translate }}</a>
+          </li>
+        }
+        @if (showSendFeedback$ | async) {
+          <li>
+            <a class="btn text-white"
+               routerLink="info/feedback" role="link" tabindex="0">{{ 'footer.link.feedback' | translate }}</a>
+          </li>
+        }
+      </ul>
+    </div>
+    @if (coarLdnEnabled$ | async) {
+      <div class="notify-enabled text-white align-self-end">
+        <a class="coar-notify-support-route" routerLink="info/coar-notify-support" role="link" tabindex="0">
+          <img class="n-coar" src="assets/images/n-coar.svg" [attr.alt]="'menu.header.image.logo' | translate" />
+          {{ 'footer.link.coar-notify-support' | translate }}
+        </a>
+      </div>
+    }
+  </div>
+  <!-- Copyright -->
+</footer>
