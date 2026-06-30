@@ -3868,17 +3868,21 @@
   "health-page.section.no-issues": "No issues detected",
 
   // "home.description": "",
+  "home.description.lead": "Boğaziçi Üniversitesi bünyesinde geliştirilen açık kaynaklı Türkçe Doğal Dil İşleme (DDİ) kaynaklarını sunan TULAP (Türkçe Doğal Dil İşleme Platformu), bu veri havuzunda 14 derlem ve 17 araç barındırmaktadır.",
+  "home.description.demo-text": "Kaynak kodları ve Dockerize edilmiş sürümleri de paylaşılan tüm araçların <a href=\"{{demoUrl}}\">demolarını</a> deneyebilirsiniz.",
   "home.description": "",
+  "home.description.lead": "Boğaziçi Üniversitesi bünyesinde geliştirilen açık kaynaklı Türkçe Doğal Dil İşleme (DDİ) kaynaklarını sunan TULAP (Türkçe Doğal Dil İşleme Platformu), bu veri havuzunda 14 derlem ve 17 araç barındırmaktadır.",
+  "home.description.demo-text": "Kaynak kodları ve Dockerize edilmiş sürümleri de paylaşılan tüm araçların <a href=\"{{demoUrl}}\">demolarını</a> deneyebilirsiniz.",
 
   // "home.breadcrumbs": "Home",
-  "home.breadcrumbs": "Anasayfa",
+  "home.breadcrumbs": "Ana Sayfa",
 
   // "home.search-form.placeholder": "Search the repository ...",
   "home.search-form.placeholder": "Depoda ara ...",
 
   // "home.title": "Home",
   // TODO Source message changed - Revise the translation
-  "home.title": "DSpace Açısal :: Anasayfa",
+  "home.title": "DSpace Açısal :: Ana Sayfa",
 
   // "home.top-level-communities.head": "Communities in DSpace",
   "home.top-level-communities.head": "Dspace'deki Komüniteler",

@@ -4,6 +4,7 @@ import { Component } from '@angular/core';
   selector: 'ds-base-home-news',
   styleUrls: ['./home-news.component.scss'],
   templateUrl: './home-news.component.html',
+  imports: [],
 })
 
 /**
