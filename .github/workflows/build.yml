@@ -38,9 +38,11 @@ jobs:
       NODE_OPTIONS: '--max-old-space-size=4096'
       # Project name to use when running "docker compose" prior to e2e tests
       COMPOSE_PROJECT_NAME: 'ci'
-      # Docker Registry to use for Docker compose scripts below.
-      # We use GitHub's Container Registry to avoid aggressive rate limits at DockerHub.
-      DOCKER_REGISTRY: ghcr.io
+      # Docker Registry for the docker-compose scripts below.
+      # This fork pulls the PUBLIC DSpace backend images from Docker Hub (docker.io/dspace/*).
+      # Upstream uses ghcr.io + a login to its own org's GHCR, which a fork's GITHUB_TOKEN
+      # cannot access (results in "denied") — so we use Docker Hub and drop the login step.
+      DOCKER_REGISTRY: docker.io
     strategy:
       # Create a matrix of Node versions to test against (in parallel)
       matrix:
@@ -120,13 +122,9 @@ jobs:
           path: 'coverage/dspace-angular/lcov.info'
           retention-days: 14
 
-      # Login to our Docker registry, so that we can access private Docker images using "docker compose" below.
-      - name: Login to ${{ env.DOCKER_REGISTRY }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # No registry login needed: the DSpace backend images (dspace, dspace-postgres-loadsql,
+      # dspace-solr) are public on Docker Hub. If you ever hit Docker Hub anonymous rate
+      # limits, add a docker/login-action step here using DOCKERHUB_* repo secrets.
 
       # Using "docker compose" start backend using CI configuration
       # and load assetstore from a cached copy
