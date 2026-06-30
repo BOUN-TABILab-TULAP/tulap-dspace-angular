@@ -3433,6 +3433,12 @@
   // "footer.copyright": "copyright © 2002-{{ year }}",
   "footer.copyright": "telif hakkı © 2002-{{ year }}",
 
+  "footer.tulap.title": "TULAP — Türkçe Dil İşleme Platformu",
+
+  "footer.tulap.org": "Boğaziçi Üniversitesi · TABILAB",
+
+  "footer.powered-by": "DSpace ile geliştirilmiştir",
+
   // "footer.link.accessibility": "Accessibility settings",
   // TODO New key - Add a translation
   "footer.link.accessibility": "Accessibility settings",
