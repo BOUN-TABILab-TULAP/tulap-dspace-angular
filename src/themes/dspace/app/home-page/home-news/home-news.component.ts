@@ -1,5 +1,5 @@
-import { TranslateModule } from '@ngx-translate/core';
 import { Component } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { HomeNewsComponent as BaseComponent } from '../../../../../app/home-page/home-news/home-news.component';
 
