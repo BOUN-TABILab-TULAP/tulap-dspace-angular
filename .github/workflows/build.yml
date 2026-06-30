@@ -3,8 +3,21 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-nodejs
 name: Build
 
-# Run this Build for all pushes / PRs to current branch
-on: [push, pull_request]
+# PRs run the fast path (lint + unit tests + build). The full cypress e2e suite
+# (which needs the DSpace backend in Docker, ~25-30 min) runs only on main, on a
+# nightly schedule, and on manual dispatch — see the `if:` guards on the e2e steps.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'  # nightly full run on the default branch (main)
+
+# Cancel an in-progress run when a newer commit is pushed to the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read  # to fetch code (actions/checkout)
@@ -38,13 +51,16 @@ jobs:
       NODE_OPTIONS: '--max-old-space-size=4096'
       # Project name to use when running "docker compose" prior to e2e tests
       COMPOSE_PROJECT_NAME: 'ci'
-      # Docker Registry to use for Docker compose scripts below.
-      # We use GitHub's Container Registry to avoid aggressive rate limits at DockerHub.
-      DOCKER_REGISTRY: ghcr.io
+      # Docker Registry for the docker-compose scripts below.
+      # This fork pulls the PUBLIC DSpace backend images from Docker Hub (docker.io/dspace/*).
+      # Upstream uses ghcr.io + a login to its own org's GHCR, which a fork's GITHUB_TOKEN
+      # cannot access (results in "denied") — so we use Docker Hub and drop the login step.
+      DOCKER_REGISTRY: docker.io
     strategy:
-      # Create a matrix of Node versions to test against (in parallel)
+      # Create a matrix of Node versions to test against (in parallel).
+      # PRs test a single version (fast); main / nightly / manual test both.
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: ${{ (github.event_name == 'pull_request') && fromJSON('["22.x"]') || fromJSON('["20.x", "22.x"]') }}
       # Do NOT exit immediately if one matrix job fails
       fail-fast: false
     # These are the actual CI steps to perform per job
@@ -120,17 +136,14 @@ jobs:
           path: 'coverage/dspace-angular/lcov.info'
           retention-days: 14
 
-      # Login to our Docker registry, so that we can access private Docker images using "docker compose" below.
-      - name: Login to ${{ env.DOCKER_REGISTRY }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # No registry login needed: the DSpace backend images (dspace, dspace-postgres-loadsql,
+      # dspace-solr) are public on Docker Hub. If you ever hit Docker Hub anonymous rate
+      # limits, add a docker/login-action step here using DOCKERHUB_* repo secrets.
 
       # Using "docker compose" start backend using CI configuration
       # and load assetstore from a cached copy
       - name: Start DSpace REST Backend via Docker (for e2e tests)
+        if: github.event_name != 'pull_request'  # e2e only on main / nightly / manual
         run: |
           docker compose -f ./docker/docker-compose-ci.yml up -d
           docker compose -f ./docker/cli.yml -f ./docker/cli.assetstore.yml run --rm dspace-cli
@@ -140,6 +153,7 @@ jobs:
       # https://github.com/cypress-io/github-action
       # (NOTE: to run these e2e tests locally, just use 'ng e2e')
       - name: Run e2e tests (integration tests)
+        if: github.event_name != 'pull_request'
         uses: cypress-io/github-action@v6
         with:
           # Run tests in Chrome, headless mode (default)
@@ -156,7 +170,7 @@ jobs:
       # Save those in an Artifact
       - name: Upload e2e test videos to Artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: e2e-test-videos-${{ matrix.node-version }}
           path: cypress/videos
@@ -165,12 +179,13 @@ jobs:
       # Save those in an Artifact
       - name: Upload e2e test failure screenshots to Artifacts
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && github.event_name != 'pull_request'
         with:
           name: e2e-test-screenshots-${{ matrix.node-version }}
           path: cypress/screenshots
 
       - name: Stop app (in case it stays up after e2e tests)
+        if: github.event_name != 'pull_request'
         run: |
           app_pid=$(lsof -t -i:4000)
           if [[ ! -z $app_pid ]]; then
@@ -180,6 +195,7 @@ jobs:
 
       # Start up the app with SSR enabled (run in background)
       - name: Start app in SSR (server-side rendering) mode
+        if: github.event_name != 'pull_request'  # needs the backend (skipped on PRs)
         run: |
           nohup npm run serve:ssr &
           printf 'Waiting for app to start'
@@ -193,6 +209,7 @@ jobs:
       # If it does, then SSR is working, as this tag is created by our MetadataService.
       # This step also prints entire HTML of homepage for easier debugging if grep fails.
       - name: Verify SSR (server-side rendering) on Homepage
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/home)
           echo "$result"
@@ -201,6 +218,7 @@ jobs:
       # Get a specific community in our test data and verify that the "<h1>" tag includes "Publications" (the community name).
       # If it does, then SSR is working.
       - name: Verify SSR on a Community page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/communities/0958c910-2037-42a9-81c7-dca80e3892b4)
           echo "$result"
@@ -209,6 +227,7 @@ jobs:
       # Get a specific collection in our test data and verify that the "<h1>" tag includes "Articles" (the collection name).
       # If it does, then SSR is working.
       - name: Verify SSR on a Collection page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/collections/282164f5-d325-4740-8dd1-fa4d6d3e7200)
           echo "$result"
@@ -217,6 +236,7 @@ jobs:
       # Get a specific publication in our test data and verify that the <meta name="title"> tag includes
       # the title of this publication. If it does, then SSR is working.
       - name: Verify SSR on a Publication page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/publication/6160810f-1e53-40db-81ef-f6621a727398)
           echo "$result"
@@ -225,6 +245,7 @@ jobs:
       # Get a specific person in our test data and verify that the <meta name="title"> tag includes
       # the name of the person. If it does, then SSR is working.
       - name: Verify SSR on a Person page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/person/b1b2c768-bda1-448a-a073-fc541e8b24d9)
           echo "$result"
@@ -233,6 +254,7 @@ jobs:
       # Get a specific project in our test data and verify that the <meta name="title"> tag includes
       # the name of the project. If it does, then SSR is working.
       - name: Verify SSR on a Project page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/project/46ccb608-a74c-4bf6-bc7a-e29cc7defea9)
           echo "$result"
@@ -241,6 +263,7 @@ jobs:
       # Get a specific orgunit in our test data and verify that the <meta name="title"> tag includes
       # the name of the orgunit. If it does, then SSR is working.
       - name: Verify SSR on an OrgUnit page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/orgunit/9851674d-bd9a-467b-8d84-068deb568ccf)
           echo "$result"
@@ -249,6 +272,7 @@ jobs:
       # Get a specific journal in our test data and verify that the <meta name="title"> tag includes
       # the name of the journal. If it does, then SSR is working.
       - name: Verify SSR on a Journal page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/journal/d4af6c3e-53d0-4757-81eb-566f3b45d63a)
           echo "$result"
@@ -257,6 +281,7 @@ jobs:
       # Get a specific journal volume in our test data and verify that the <meta name="title"> tag includes
       # the name of the volume. If it does, then SSR is working.
       - name: Verify SSR on a Journal Volume page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/journalvolume/07c6249f-4bf7-494d-9ce3-6ffdb2aed538)
           echo "$result"
@@ -265,6 +290,7 @@ jobs:
       # Get a specific journal issue in our test data and verify that the <meta name="title"> tag includes
       # the name of the issue. If it does, then SSR is working.
       - name: Verify SSR on a Journal Issue page
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget -O- -q http://127.0.0.1:4000/entities/journalissue/44c29473-5de2-48fa-b005-e5029aa1a50b)
           echo "$result"
@@ -273,6 +299,7 @@ jobs:
       # Verify 301 Handle redirect behavior
       # Note: /handle/123456789/260 is the same test Publication used by our e2e tests
       - name: Verify 301 redirect from '/handle' URLs
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget --server-response --quiet http://127.0.0.1:4000/handle/123456789/260 2>&1 | head -1 | awk '{print $2}')
           echo "$result"
@@ -280,6 +307,7 @@ jobs:
 
       # Verify 403 error code behavior
       - name: Verify 403 error code from '/403'
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget --server-response --quiet http://127.0.0.1:4000/403 2>&1 | head -1 | awk '{print $2}')
           echo "$result"
@@ -287,6 +315,7 @@ jobs:
 
       # Verify 404 error code behavior
       - name: Verify 404 error code from '/404' and on invalid pages
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget --server-response --quiet http://127.0.0.1:4000/404 2>&1 | head -1 | awk '{print $2}')
           echo "$result"
@@ -296,15 +325,18 @@ jobs:
 
       # Verify 500 error code behavior
       - name: Verify 500 error code from '/500'
+        if: github.event_name != 'pull_request'
         run: |
           result=$(wget --server-response --quiet http://127.0.0.1:4000/500 2>&1 | head -1 | awk '{print $2}')
           echo "$result"
           [[ "$result" -eq "500" ]]
 
       - name: Stop running app
+        if: github.event_name != 'pull_request'
         run: kill -9 $(lsof -t -i:4000)
 
       - name: Shutdown Docker containers
+        if: github.event_name != 'pull_request'
         run: docker compose -f ./docker/docker-compose-ci.yml down
 
   # Codecov upload is a separate job in order to allow us to restart this separate from the entire build/test
@@ -313,6 +345,8 @@ jobs:
   codecov:
     # Must run after 'tests' job above
     needs: tests
+    # Coverage upload belongs on main/nightly; skip on PRs to keep them lean.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -334,7 +368,9 @@ jobs:
           # Ensure codecov-action throws an error when it fails to upload
           # This allows us to auto-restart the action if an error is thrown
           with: |
-            fail_ci_if_error: true
+            # Do NOT fail CI on upload errors: this fork has no CODECOV_TOKEN, so the
+            # upload is best-effort. Add a CODECOV_TOKEN secret to enable real reporting.
+            fail_ci_if_error: false
             token: ${{ secrets.CODECOV_TOKEN }}
           # Try re-running action 5 times max
           attempt_limit: 5
