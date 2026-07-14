@@ -362,6 +362,10 @@ jobs:
       # Retry action: https://github.com/marketplace/actions/retry-action
       # Codecov action: https://github.com/codecov/codecov-action
       - name: Upload coverage to Codecov.io
+        # Best-effort only (no CODECOV_TOKEN on this fork): don't let a crash in the
+        # wrapper/upload action itself (e.g. "Expects non-primitive") redden the whole
+        # nightly run — fail_ci_if_error only covers upload-reported errors, not that.
+        continue-on-error: true
         uses: Wandalen/wretry.action@v1.3.0
         with:
           action: codecov/codecov-action@v4
